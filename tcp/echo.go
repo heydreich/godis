@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hdt3213/godis/lib/logger"
-	"github.com/hdt3213/godis/lib/sync/atomic"
-	"github.com/hdt3213/godis/lib/sync/wait"
+	"godis/lib/logger"
+	"godis/lib/sync/atomic"
+	"godis/lib/sync/wait"
 )
 
 type EchoClient struct {
@@ -20,8 +20,7 @@ type EchoClient struct {
 
 type EchoHandler struct {
 	activeConn sync.Map
-
-	closing atomic.Boolean
+	closing    atomic.Boolean
 }
 
 func (c *EchoClient) Close() error {
