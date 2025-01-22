@@ -38,6 +38,7 @@ func (h *EchoHandler) Handle(ctx context.Context, conn net.Conn) {
 		conn.Close()
 		return
 	}
+
 	client := &EchoClient{
 		Conn: conn,
 	}

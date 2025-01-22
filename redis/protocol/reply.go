@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strconv"
 
-	"github.com/hdt3213/godis/interface/redis"
+	"godis/interface/redis"
 )
 
 var (

@@ -1,75 +1,40 @@
 package main
 
 import (
-	"context"
+	"flag"
 	"fmt"
-	"godis/interface/tcp"
-	"net"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-	"time"
-
 	"godis/lib/logger"
+	"godis/tcp"
+
+	"godis/config"
+
+	"godis/redis/server"
 )
 
-func ListenAndServe(listener net.Listener, handler tcp.Handler, closechan <-chan struct{}) {
-	go func() {
-		<-closechan
-		logger.Info("shutting down ...")
-		_ = listener.Close()
-		_ = handler.Close()
-	}()
-	defer func() {
-		_ = listener.Close()
-		_ = handler.Close()
-	}()
-	ctx := context.Background()
-	var waitDown sync.WaitGroup
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			break
-		}
-		logger.Info("accept link..")
-		waitDown.Add(1)
-		go func() {
-			defer func() {
-				waitDown.Done()
-			}()
-			handler.Handle(ctx, conn)
-		}()
-	}
-	waitDown.Wait()
-}
+var configFilename string
+var defaultconfigFileName = "config.yaml"
 
-type Config struct {
-	Address    string        `yaml:"address"`
-	MaxConnect uint32        `yaml:"max-connect"`
-	Timeout    time.Duration `yaml:"timeout"`
-}
-
-func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
-	closeChan := make(chan struct{})
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		sig := <-sigCh
-		switch sig {
-		case syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
-			closeChan <- struct{}{}
-		}
-	}()
-	listener, err := net.Listen("tcp", cfg.Address)
-	if err != nil {
-		return err
-	}
-	logger.Info(fmt.Sprintf("bind: %s, start listening...", cfg.Address))
-	ListenAndServe(listener, handler, closeChan)
-	return nil
-}
+const banner = `
+   ________   _______    ________   ___   ________      
+  |\   __  \ |\  ___ \  |\   ___ \ |\  \ |\   ____\     
+  \ \  \|\  \\ \   __/| \ \  \_|\ \\ \  \\ \  \___|_    
+   \ \   _  _\\ \  \_|/__\ \  \ \\ \\ \  \\ \_____  \   
+    \ \  \\  \|\ \  \_|\ \\ \  \_\\ \\ \  \\|____|\  \  
+     \ \__\\ _\ \ \_______\\ \_______\\ \__\ ____\_\  \ 
+      \|__|\|__| \|_______| \|_______| \|__||\_________\
+                                            \|_________|
+`
 
 func main() {
 	// ListenAndServe(":8000")
+	flag.StringVar(&configFilename, "f", defaultconfigFileName, "the config file")
+	flag.Parse()
+
+	config.SetupConfig(configFilename)
+
+	if err := tcp.ListenAndServeWithSignal(&tcp.Config{
+		Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
+	}, server.MakeHandler()); err != nil {
+		logger.Error(err)
+	}
 }

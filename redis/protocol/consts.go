@@ -3,7 +3,7 @@ package protocol
 import (
 	"bytes"
 
-	"github.com/hdt3213/godis/interface/redis"
+	"godis/interface/redis"
 )
 
 // PongReply is +PONG

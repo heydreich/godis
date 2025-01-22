@@ -190,3 +190,8 @@ func Fatal(v ...interface{}) {
 	msg := fmt.Sprintln(v...)
 	DefaultLogger.Output(FATAL, defaultCallerDepth, msg)
 }
+
+func Fatalf(format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	DefaultLogger.Output(FATAL, defaultCallerDepth, msg)
+}

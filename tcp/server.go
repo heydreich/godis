@@ -1,43 +1,70 @@
 package tcp
 
 import (
-	"bufio"
+	"context"
 	"fmt"
-	"io"
-	"log"
+	"godis/interface/tcp"
+	"godis/lib/logger"
 	"net"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 )
 
-func ListenAndServe(address string) {
-	listen, err := net.Listen("tcp", address)
-	if err != nil {
-		log.Fatal(fmt.Sprintf("listen err: %v", err))
-	}
-	defer listen.Close()
-	log.Println(fmt.Sprintf("bind: %s, start listening...", address))
+func ListenAndServe(listener net.Listener, handler tcp.Handler, closechan <-chan struct{}) {
+	go func() {
+		<-closechan
+		logger.Info("shutting down ...")
+		_ = listener.Close()
+		_ = handler.Close()
+	}()
+	defer func() {
+		_ = listener.Close()
+		_ = handler.Close()
+	}()
+	ctx := context.Background()
+	var waitDown sync.WaitGroup
 	for {
-		conn, err := listen.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
-			log.Fatal(fmt.Sprintf("accept err: %v", err))
+			break
 		}
-		go Handle(conn)
+		logger.Info("accept link..")
+		waitDown.Add(1)
+		go func() {
+			defer func() {
+				waitDown.Done()
+			}()
+			handler.Handle(ctx, conn)
+		}()
 	}
+	waitDown.Wait()
 }
 
-func Handle(conn net.Conn) {
-	reader := bufio.NewReader(conn)
-	for {
-		msg, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				log.Println("connection close")
-			} else {
-				log.Println(err)
-			}
-			return
-		}
-		b := []byte(msg)
-		conn.Write(b)
-	}
+type Config struct {
+	Address    string        `yaml:"address"`
+	MaxConnect uint32        `yaml:"max-connect"`
+	Timeout    time.Duration `yaml:"timeout"`
+}
 
+func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
+	closeChan := make(chan struct{})
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		sig := <-sigCh
+		switch sig {
+		case syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+			closeChan <- struct{}{}
+		}
+	}()
+	listener, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		return err
+	}
+	logger.Info(fmt.Sprintf("bind: %s, start listening...", cfg.Address))
+	ListenAndServe(listener, handler, closeChan)
+	return nil
 }
