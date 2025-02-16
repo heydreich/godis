@@ -28,6 +28,10 @@ func (r *ArgNumErrReply) Error() string {
 	return "ERR wrong number of arguments for '" + r.Cmd + "' command"
 }
 
+func (r *ArgNumErrReply) DataString() string {
+	return "(error) " + r.Error()
+}
+
 // MakeArgNumErrReply represents wrong number of arguments for command
 func MakeArgNumErrReply(cmd string) *ArgNumErrReply {
 	return &ArgNumErrReply{
@@ -55,6 +59,10 @@ func (r *SyntaxErrReply) Error() string {
 	return "Err syntax error"
 }
 
+func (r *SyntaxErrReply) DataString() string {
+	return "(error) " + r.Error()
+}
+
 // WrongTypeErrReply represents operation against a key holding the wrong kind of value
 type WrongTypeErrReply struct{}
 
@@ -67,6 +75,9 @@ func (r *WrongTypeErrReply) ToBytes() []byte {
 
 func (r *WrongTypeErrReply) Error() string {
 	return "WRONGTYPE Operation against a key holding the wrong kind of value"
+}
+func (r *WrongTypeErrReply) DataString() string {
+	return "(error) " + r.Error()
 }
 
 // ProtocolErr
@@ -83,4 +94,8 @@ func (r *ProtocolErrReply) ToBytes() []byte {
 
 func (r *ProtocolErrReply) Error() string {
 	return "ERR Protocol error '" + r.Msg + "' command"
+}
+
+func (r *ProtocolErrReply) DataString() string {
+	return "(error) " + r.Error()
 }

@@ -3,13 +3,16 @@ package server
 import (
 	"context"
 	"godis/config"
+	database2 "godis/database"
 	"godis/interface/database"
 	"godis/lib/logger"
 	"godis/lib/sync/atomic"
 	"godis/redis/connection"
 	"godis/redis/parser"
 	"godis/redis/protocol"
+	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -26,10 +29,10 @@ type Handler struct {
 func MakeHandler() *Handler {
 	var db database.DB
 	if config.Properties.Peers != nil && len(config.Properties.Peers) != 0 {
-		// db = database2.NewClusterServer(config.Properties.Peers)
+		db = database2.NewClusterServer(config.Properties.Peers)
 		logger.Infof("cluster mode, peer is %v", config.Properties.Peers)
 	} else {
-		// db = database2.NewStandaloneServer()
+		db = database2.NewStandaloneServer()
 	}
 	h := &Handler{
 		db:          db,
@@ -54,8 +57,20 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) {
 	ch := parser.ParseStream(conn)
 	for payload := range ch {
 		if payload.Err != nil {
-			// todo
-			return
+			if payload.Err == io.EOF || payload.Err == io.ErrUnexpectedEOF ||
+				strings.Contains(payload.Err.Error(), "use of closed network connection") {
+				h.closeClient(client)
+				logger.Info("connection closed: " + client.RemoteAddr().String())
+				return
+			}
+			errReply := protocol.MakeErrReply(payload.Err.Error())
+			_, err := client.Write(errReply.ToBytes())
+			if err != nil {
+				h.closeClient(client)
+				logger.Info("connection closed: " + client.RemoteAddr().String())
+				return
+			}
+			continue
 		}
 		if payload.Data == nil {
 			logger.Error("empty payload")
@@ -99,7 +114,7 @@ func (h *Handler) checkActiveHeartbeat(keepalive int) {
 
 func (h *Handler) closeClient(client *connection.Connection) {
 	_ = client.Close()
-	// h.db
+	h.db.AfterClientClose(client)
 	h.activeConn.Delete(client)
 }
 

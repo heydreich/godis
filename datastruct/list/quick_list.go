@@ -9,6 +9,13 @@ type QuickList struct {
 	size int
 }
 
+func MakeQuickList() *QuickList {
+	return &QuickList{
+		data: list.New(),
+		size: 0,
+	}
+}
+
 func (ql *QuickList) Get(index int) (val interface{}) {
 	if index < 0 || index >= ql.size {
 		panic("`index` out of range")

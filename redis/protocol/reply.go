@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"strconv"
+	"strings"
 
 	"godis/interface/redis"
 )
@@ -33,6 +34,9 @@ func (r *BulkReply) ToBytes() []byte {
 		return nullBulkBytes
 	}
 	return []byte("$" + strconv.Itoa(len(r.Arg)) + CRLF + string(r.Arg) + CRLF)
+}
+func (r *BulkReply) DataString() string {
+	return string(r.Arg)
 }
 
 /* ---- Multi Bulk Reply ---- */
@@ -84,6 +88,23 @@ func (r *MultiBulkReply) ToBytes() []byte {
 	return buf.Bytes()
 }
 
+func (r *MultiBulkReply) DataString() string {
+	if len(r.Args) == 0 {
+		return "(empty list or set)"
+	}
+
+	var builder strings.Builder
+	for i, arg := range r.Args {
+		builder.WriteString(strconv.Itoa(i+1) + ") ")
+		builder.Write(arg)
+		if i != len(r.Args)-1 {
+			builder.WriteByte('\n')
+		}
+	}
+
+	return builder.String()
+}
+
 /* ---- Multi Raw Reply ---- */
 
 // MultiRawReply store complex list structure, for example GeoPos command
@@ -128,6 +149,10 @@ func (r *StatusReply) ToBytes() []byte {
 	return []byte("+" + r.Status + CRLF)
 }
 
+func (r *StatusReply) DataString() string {
+	return r.Status
+}
+
 // IsOKReply returns true if the given protocol is +OK
 func IsOKReply(reply redis.Reply) bool {
 	return string(reply.ToBytes()) == "+OK\r\n"
@@ -151,6 +176,9 @@ func MakeIntReply(code int64) *IntReply {
 func (r *IntReply) ToBytes() []byte {
 	return []byte(":" + strconv.FormatInt(r.Code, 10) + CRLF)
 }
+func (r *IntReply) DataString() string {
+	return "(integer) " + strconv.FormatInt(r.Code, 10)
+}
 
 /* ---- Error Reply ---- */
 
@@ -158,6 +186,7 @@ func (r *IntReply) ToBytes() []byte {
 type ErrorReply interface {
 	Error() string
 	ToBytes() []byte
+	DataString() string
 }
 
 // StandardErrReply represents server error
@@ -184,4 +213,8 @@ func (r *StandardErrReply) ToBytes() []byte {
 
 func (r *StandardErrReply) Error() string {
 	return r.Status
+}
+
+func (r *StandardErrReply) DataString() string {
+	return "(error) " + r.Error()
 }

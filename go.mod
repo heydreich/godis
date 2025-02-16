@@ -3,6 +3,7 @@ module godis
 go 1.23.2
 
 require (
+	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

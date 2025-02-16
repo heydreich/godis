@@ -28,6 +28,16 @@ type Connection struct {
 	subscribeChannels map[string]struct{}
 }
 
+func NewConn(conn net.Conn) *Connection {
+	c, ok := connPool.Get().(*Connection)
+	if !ok {
+		logger.Error("connection pool make wrong type")
+		return &Connection{conn: conn}
+	}
+	c.conn = conn
+	return c
+}
+
 var connPool = sync.Pool{
 	New: func() interface{} {
 		return &Connection{}
@@ -63,12 +73,28 @@ func (c *Connection) Close() error {
 	return nil
 }
 
-func NewConn(conn net.Conn) *Connection {
-	c, ok := connPool.Get().(*Connection)
-	if !ok {
-		logger.Error("connection pool make wrong type")
-		return &Connection{conn: conn}
+func (c *Connection) Name() string {
+	if c.conn != nil {
+		return c.conn.RemoteAddr().String()
 	}
-	c.conn = conn
-	return c
+	return ""
+}
+
+func (c *Connection) SetPassword(password string) {
+	c.password = password
+}
+func (c *Connection) GetPassword() string {
+	return c.password
+}
+
+func (c *Connection) GetDBIndex() int {
+	return c.selectedDB
+}
+func (c *Connection) SelectDB(dbnum int) {
+	c.selectedDB = dbnum
+}
+
+// RemoteAddr returns the remote network address
+func (c *Connection) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }

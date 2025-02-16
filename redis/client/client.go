@@ -50,6 +50,21 @@ type request struct {
 	err       error
 }
 
+func MakeClient(addr string, keepalive int) (*Client, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		conn:        conn,
+		pendingReqs: make(chan *request, chanSize),
+		waitingReqs: make(chan *request, chanSize),
+		addr:        addr,
+		working:     &sync.WaitGroup{},
+		keepalive:   time.Second * time.Duration(keepalive),
+	}, nil
+}
+
 func (client *Client) Start() {
 	go client.handleWrite()
 	go client.handleRead()
@@ -171,4 +186,8 @@ func (client *Client) heartbeat() {
 	defer client.working.Done()
 	client.pendingReqs <- req
 	req.waiting.WaitWithTimeout(maxWait)
+}
+
+func (client *Client) StatusClosed() bool {
+	return atomic.LoadInt32(&client.status) == closed
 }
